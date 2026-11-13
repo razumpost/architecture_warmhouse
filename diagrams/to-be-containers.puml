@@ -6,10 +6,11 @@ title Тёплый дом — целевая микросервисная арх
 LAYOUT_TOP_DOWN()
 LAYOUT_WITH_LEGEND()
 
-skinparam linetype ortho
-skinparam nodesep 45
-skinparam ranksep 55
-skinparam ArrowFontSize 10
+skinparam linetype polyline
+skinparam nodesep 85
+skinparam ranksep 110
+skinparam ArrowFontSize 9
+skinparam ArrowFontColor #333333
 skinparam defaultFontName Arial
 
 Person(user, "Пользователь", "Управляет домом, устройствами и сценариями")
