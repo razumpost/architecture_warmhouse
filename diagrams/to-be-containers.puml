@@ -1,0 +1,74 @@
+@startuml
+!include <C4/C4_Container>
+
+title Тёплый дом - целевая микросервисная архитектура (To-Be)
+
+LAYOUT_LEFT_RIGHT()
+
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 100
+skinparam ArrowFontSize 10
+
+Person(user, "Пользователь", "Управляет умным домом")
+
+System_Ext(devices, "Устройства умного дома", "Датчики, реле, освещение, ворота")
+
+System_Boundary(smart_home, "Экосистема Тёплый дом") {
+
+    Container(web, "Web UI", "Web", "Пользовательский интерфейс")
+
+    Container(gateway, "API Gateway", "REST", "Маршрутизация запросов")
+
+    together {
+        Container(identity, "Identity Service", "REST", "Авторизация")
+        Container(home, "Home Service", "REST", "Управление домами")
+        Container(device, "Device Service", "REST", "Управление устройствами")
+        Container(telemetry, "Telemetry Service", "REST", "Обработка телеметрии")
+        Container(automation, "Automation Service", "REST", "Сценарии автоматизации")
+    }
+
+    together {
+        ContainerDb(identity_db, "Identity DB", "PostgreSQL", "Пользователи")
+        ContainerDb(home_db, "Home DB", "PostgreSQL", "Дома")
+        ContainerDb(device_db, "Device DB", "PostgreSQL", "Устройства")
+        ContainerDb(telemetry_db, "Telemetry DB", "PostgreSQL", "Показания")
+        ContainerDb(automation_db, "Automation DB", "PostgreSQL", "Сценарии")
+    }
+
+    ContainerQueue(broker, "Message Broker", "RabbitMQ", "Асинхронные события")
+
+    Container(iot, "IoT Gateway", "MQTT / HTTP", "Подключение оборудования")
+
+}
+
+' Пользовательский интерфейс
+Rel_R(user, web, "Использует", "HTTPS")
+Rel_R(web, gateway, "API-запросы", "REST")
+
+' API Gateway
+Rel(gateway, identity, "Авторизация")
+Rel(gateway, home, "Дома")
+Rel(gateway, device, "Устройства")
+Rel(gateway, telemetry, "Телеметрия")
+Rel(gateway, automation, "Сценарии")
+
+' Базы данных
+Rel_R(identity, identity_db, "SQL")
+Rel_R(home, home_db, "SQL")
+Rel_R(device, device_db, "SQL")
+Rel_R(telemetry, telemetry_db, "SQL")
+Rel_R(automation, automation_db, "SQL")
+
+' IoT
+Rel(devices, iot, "Телеметрия / команды", "MQTT / HTTP")
+Rel(iot, telemetry, "Передаёт показания", "REST")
+Rel(device, iot, "Передаёт команды", "REST")
+
+' События
+Rel(telemetry, broker, "Публикует измерения")
+Rel(device, broker, "Публикует состояние")
+Rel(broker, automation, "Передаёт события")
+Rel(automation, device, "Команды", "REST")
+
+@enduml
