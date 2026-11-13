@@ -1,74 +1,139 @@
 @startuml
 !include <C4/C4_Container>
 
-title Тёплый дом - целевая микросервисная архитектура (To-Be)
+title Тёплый дом — целевая микросервисная архитектура (To-Be)
 
-LAYOUT_LEFT_RIGHT()
+LAYOUT_TOP_DOWN()
+LAYOUT_WITH_LEGEND()
 
 skinparam linetype ortho
-skinparam nodesep 70
-skinparam ranksep 100
+skinparam nodesep 45
+skinparam ranksep 55
 skinparam ArrowFontSize 10
+skinparam defaultFontName Arial
 
-Person(user, "Пользователь", "Управляет умным домом")
+Person(user, "Пользователь", "Управляет домом, устройствами и сценариями")
+System_Ext(devices, "Устройства умного дома", "Датчики, отопление, свет, ворота")
 
-System_Ext(devices, "Устройства умного дома", "Датчики, реле, освещение, ворота")
+System_Boundary(system, "Экосистема «Тёплый дом»") {
 
-System_Boundary(smart_home, "Экосистема Тёплый дом") {
+    Container(web, "Web UI", "Веб-приложение", "Кабинет пользователя")
 
-    Container(web, "Web UI", "Web", "Пользовательский интерфейс")
+    Container(api, "API Gateway", "HTTPS / REST", "Единая точка входа")
 
-    Container(gateway, "API Gateway", "REST", "Маршрутизация запросов")
+    Container(identity, "Identity Service", "REST API", "Учётные записи и доступ")
 
-    together {
-        Container(identity, "Identity Service", "REST", "Авторизация")
-        Container(home, "Home Service", "REST", "Управление домами")
-        Container(device, "Device Service", "REST", "Управление устройствами")
-        Container(telemetry, "Telemetry Service", "REST", "Обработка телеметрии")
-        Container(automation, "Automation Service", "REST", "Сценарии автоматизации")
-    }
+    Container(home, "Home Service", "REST API", "Дома и права доступа")
 
-    together {
-        ContainerDb(identity_db, "Identity DB", "PostgreSQL", "Пользователи")
-        ContainerDb(home_db, "Home DB", "PostgreSQL", "Дома")
-        ContainerDb(device_db, "Device DB", "PostgreSQL", "Устройства")
-        ContainerDb(telemetry_db, "Telemetry DB", "PostgreSQL", "Показания")
-        ContainerDb(automation_db, "Automation DB", "PostgreSQL", "Сценарии")
-    }
+    Container(device, "Device Service", "REST API", "Регистрация и управление устройствами")
 
-    ContainerQueue(broker, "Message Broker", "RabbitMQ", "Асинхронные события")
+    Container(telemetry, "Telemetry Service", "REST API", "Измерения и история")
 
-    Container(iot, "IoT Gateway", "MQTT / HTTP", "Подключение оборудования")
+    Container(automation, "Automation Service", "REST API", "Правила и сценарии")
 
+    Container(iot, "IoT Gateway", "MQTT / HTTP", "Адаптеры протоколов и обмен с оборудованием")
+
+    ContainerQueue(bus, "Message Broker", "RabbitMQ", "События устройств и измерений")
+
+    ContainerDb(identityDb, "Identity DB", "PostgreSQL", "Пользователи")
+
+    ContainerDb(homeDb, "Home DB", "PostgreSQL", "Дома и доступ")
+
+    ContainerDb(deviceDb, "Device DB", "PostgreSQL", "Устройства")
+
+    ContainerDb(telemetryDb, "Telemetry DB", "PostgreSQL", "Измерения")
+
+    ContainerDb(automationDb, "Automation DB", "PostgreSQL", "Сценарии")
 }
 
-' Пользовательский интерфейс
-Rel_R(user, web, "Использует", "HTTPS")
-Rel_R(web, gateway, "API-запросы", "REST")
+' =====================================================
+' 1. Пользовательские запросы
+' =====================================================
 
-' API Gateway
-Rel(gateway, identity, "Авторизация")
-Rel(gateway, home, "Дома")
-Rel(gateway, device, "Устройства")
-Rel(gateway, telemetry, "Телеметрия")
-Rel(gateway, automation, "Сценарии")
+Rel_D(user, web, "Работает в кабинете", "HTTPS")
 
-' Базы данных
-Rel_R(identity, identity_db, "SQL")
-Rel_R(home, home_db, "SQL")
-Rel_R(device, device_db, "SQL")
-Rel_R(telemetry, telemetry_db, "SQL")
-Rel_R(automation, automation_db, "SQL")
+Rel_D(web, api, "Запросы", "HTTPS / JSON")
 
-' IoT
-Rel(devices, iot, "Телеметрия / команды", "MQTT / HTTP")
-Rel(iot, telemetry, "Передаёт показания", "REST")
-Rel(device, iot, "Передаёт команды", "REST")
+Rel_D(api, identity, "Авторизация", "REST")
 
-' События
-Rel(telemetry, broker, "Публикует измерения")
-Rel(device, broker, "Публикует состояние")
-Rel(broker, automation, "Передаёт события")
-Rel(automation, device, "Команды", "REST")
+Rel_D(api, home, "Управление домами", "REST")
+
+Rel_D(api, device, "Устройства и команды", "REST")
+
+Rel_D(api, telemetry, "Просмотр измерений", "REST")
+
+Rel_D(api, automation, "Настройка сценариев", "REST")
+
+
+' =====================================================
+' 2. Собственные базы данных микросервисов
+' =====================================================
+
+Rel_D(identity, identityDb, "Чтение / запись", "SQL")
+
+Rel_D(home, homeDb, "Чтение / запись", "SQL")
+
+Rel_D(device, deviceDb, "Чтение / запись", "SQL")
+
+Rel_D(telemetry, telemetryDb, "Чтение / запись", "SQL")
+
+Rel_D(automation, automationDb, "Чтение / запись", "SQL")
+
+
+' =====================================================
+' 3. Взаимодействие с физическими устройствами
+' =====================================================
+
+Rel_D(device, iot, "Команды устройствам", "REST / очередь")
+
+Rel_U(devices, iot, "Показания и состояния", "MQTT / HTTP")
+
+
+' =====================================================
+' 4. Асинхронное взаимодействие через RabbitMQ
+' =====================================================
+
+Rel_D(iot, bus, "Публикует телеметрию", "AMQP")
+
+Rel_L(bus, telemetry, "События измерений", "AMQP")
+
+Rel_L(bus, automation, "Триггеры сценариев", "AMQP")
+
+Rel_U(automation, device, "Запускает команды", "REST")
+
+
+' =====================================================
+' 5. Управление расположением элементов
+' =====================================================
+
+' Микросервисы в горизонтальном ряду
+
+Lay_R(identity, home)
+
+Lay_R(home, device)
+
+Lay_R(device, telemetry)
+
+Lay_R(telemetry, automation)
+
+
+' IoT Gateway и брокер сообщений
+
+Lay_D(device, iot)
+
+Lay_R(iot, bus)
+
+
+' Базы данных под соответствующими микросервисами
+
+Lay_D(identity, identityDb)
+
+Lay_D(home, homeDb)
+
+Lay_D(device, deviceDb)
+
+Lay_D(telemetry, telemetryDb)
+
+Lay_D(automation, automationDb)
 
 @enduml
